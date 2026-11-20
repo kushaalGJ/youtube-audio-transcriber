@@ -11,7 +11,7 @@ from yt_dlp.utils import DownloadError
 
 def extract_youtube_audio(video_url, output_dir):
     """
-    Download audio from a YouTube video when permitted.
+    Download audio from a permitted YouTube video.
 
     Parameters:
         video_url: Validated YouTube video URL.
@@ -31,46 +31,69 @@ def extract_youtube_audio(video_url, output_dir):
     # Create the directory if necessary.
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    # Remove leftover files from earlier downloads
-    # that use our predictable filename.
+    # Remove leftover files from previous downloads.
     for old_file in output_dir.glob("youtube_audio.*"):
         if old_file.is_file():
             old_file.unlink()
 
     # Configure yt-dlp.
     options = {
+
+        # Prefer the best available audio stream.
         "format": "bestaudio/best",
-        "outtmpl": str(output_dir / "youtube_audio.%(ext)s"),
+
+        # Save audio with a predictable filename.
+        "outtmpl": str(
+            output_dir / "youtube_audio.%(ext)s"
+        ),
+
+        # Download only one video.
         "noplaylist": True,
+
+        # Disable subtitle downloads.
         "writesubtitles": False,
         "writeautomaticsub": False,
+
+        # Enable detailed logs while debugging.
         "quiet": False,
         "no_warnings": False,
         "verbose": True,
+
+        # Stop if extraction fails.
         "ignoreerrors": False,
+
+        # Retry temporary download failures.
         "retries": 2,
         "fragment_retries": 2,
+
+        # Avoid indefinitely waiting for a response.
         "socket_timeout": 20,
+
+        # Enable Node.js for YouTube JavaScript processing.
+        # Requires a supported Node.js installation
+        # on the deployment server.
+        "js_runtimes": {
+            "node": {}
+        },
     }
 
     try:
-        # Create the downloader.
+        # Initialize yt-dlp.
         with YoutubeDL(options) as ydl:
 
-            # Download audio from the requested video.
+            # Download the selected audio stream.
             ydl.download([video_url])
 
     except DownloadError as error:
-        # Handle failures reported by yt-dlp.
+        # Preserve the underlying exception for debugging.
         raise RuntimeError(
             "Unable to download audio from YouTube. "
-            "The video may be unavailable, restricted, "
-            "or YouTube may be rejecting requests from "
-            "this hosting environment. "
-            "Please try uploading an audio file instead."
+            "The video may be restricted, unavailable, "
+            "or YouTube may be rejecting requests "
+            "from this hosting environment."
         ) from error
 
-    # Locate the downloaded audio.
+    # Find the downloaded audio file.
     downloaded_files = [
         file
         for file in output_dir.glob("youtube_audio.*")
@@ -78,10 +101,12 @@ def extract_youtube_audio(video_url, output_dir):
         and not file.name.endswith(".part")
     ]
 
-    # Verify that a file was downloaded.
+    # Ensure a file was actually downloaded.
     if not downloaded_files:
         raise FileNotFoundError(
-            "YouTube extraction completed without an audio file."
+            "YouTube extraction completed "
+            "without producing an audio file."
         )
 
+    # Return the downloaded audio file path.
     return downloaded_files[0]
