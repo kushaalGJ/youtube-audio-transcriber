@@ -15,6 +15,9 @@ from pathlib import Path
 # hashlib generates fingerprints to detect file changes.
 import hashlib
 
+# Log detailed server-side errors without exposing them in the UI.
+import logging
+
 # Import our Deepgram speech-to-text service.
 from services.deepgram_service import transcribe_audio
 
@@ -368,14 +371,15 @@ elif input_method == "YouTube URL":
                             else:
                                 st.warning("No speech was detected.")
 
-                # Handle unavailable or inaccessible media.
+                # Log the full traceback to Render's server logs.
+                # Keep technical details and potential sensitive URLs out of the UI.
                 except Exception:
+                    logging.exception("YouTube transcription failed")
 
+                    # Display a safe message to the user.
                     st.error(
-                        "Unable to process this video. "
-                        "Check that downloading is permitted, "
-                        "the video is accessible, and "
-                        "your Deepgram configuration works."
+                        "Unable to process this YouTube video. "
+                        "Please check the server logs for details."
                     )
 
     # Display the original YouTube transcript after processing.
