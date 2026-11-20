@@ -73,8 +73,14 @@ def extract_youtube_audio(video_url, output_dir):
         # Requires a supported Node.js installation
         # on the deployment server.
         "js_runtimes": {
-            "node": {}
-        },
+        "deno": {
+            "path": str(
+                Path(__file__).resolve().parents[1]
+                / ".tools"
+                / "deno"
+            )
+        }
+    },
     }
 
     try:

@@ -27,3 +27,5 @@ transcripts/
 .idea/
 .DS_Store
 Thumbs.db
+
+.tools/

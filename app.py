@@ -42,6 +42,18 @@ from services.translation_service import (
     translate_to_english
 )
 
+import subprocess
+import sys
+from pathlib import Path
+
+DENO_PATH = Path(__file__).resolve().parent / ".tools" / "deno"
+
+if not DENO_PATH.exists():
+    subprocess.run(
+        [sys.executable, "install_deno.py"],
+        check=True,
+        timeout=120,
+    )
 
 # ==================================================
 # STEP 1: CONFIGURE THE APPLICATION
