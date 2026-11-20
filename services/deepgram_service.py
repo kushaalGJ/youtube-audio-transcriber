@@ -6,58 +6,102 @@
 # Import os to access environment variables.
 import os
 
-# Import requests to send HTTP requests to Deepgram.
+# Import requests to communicate with the Deepgram API.
 import requests
 
-# Import dotenv to load our API key from .env.
+# Import dotenv to load local environment variables.
 from dotenv import load_dotenv
 
-
-# Load environment variables from the .env file.
-load_dotenv()
-
+# Import Streamlit to access deployment secrets.
 import streamlit as st
 
-def get_deepgram_api_key():
-    # Use the environment variable for local development.
-    api_key = get_deepgram_api_key()
 
+# ==================================================
+# STEP 1: LOAD ENVIRONMENT VARIABLES
+# ==================================================
+
+# Load variables from the local .env file.
+# On Render, variables are configured in the dashboard.
+load_dotenv()
+
+
+# ==================================================
+# STEP 2: RETRIEVE DEEPGRAM API KEY
+# ==================================================
+
+def get_deepgram_api_key():
+    """
+    Retrieve the Deepgram API key securely.
+
+    Supported environments:
+    1. Local development using .env
+    2. Render using environment variables
+    3. Streamlit Cloud using Streamlit secrets
+    """
+
+    # First, check the operating system's environment.
+    api_key = os.getenv("DEEPGRAM_API_KEY")
+
+    # Return the key if it exists.
     if api_key:
         return api_key
 
-    # Use Streamlit secrets when deployed.
-    return st.secrets.get("DEEPGRAM_API_KEY")
+    # Otherwise, try Streamlit secrets.
+    # Handle cases where no secrets file is configured.
+    try:
+        api_key = st.secrets.get("DEEPGRAM_API_KEY")
 
+        if api_key:
+            return api_key
+
+    except (FileNotFoundError, KeyError):
+        pass
+
+    # Return None if no key is configured.
+    return None
+
+
+# ==================================================
+# STEP 3: TRANSCRIBE AUDIO AND DETECT LANGUAGE
+# ==================================================
 
 def transcribe_audio_with_language(file_path):
     """
-    Convert speech into text using Deepgram Nova-3.
+    Transcribe audio using Deepgram Nova-3.
 
-    Also return the detected language when available.
+    Supports multilingual speech recognition.
+
+    Args:
+        file_path: Path to the WAV audio file.
 
     Returns:
-        transcript: The recognized speech.
-        language: Detected language code or None.
+        tuple:
+            transcript: Recognized speech as text.
+            language: Detected language code or None.
     """
 
-    # STEP 1: Read the Deepgram API key.
-    api_key = os.getenv("DEEPGRAM_API_KEY")
+    # Retrieve the API key from the environment.
+    api_key = get_deepgram_api_key()
 
-    # Check whether the API key exists.
+    # Stop if the API key is missing.
     if not api_key:
-        raise ValueError("Deepgram API key is missing.")
+        raise ValueError(
+            "Deepgram API key is missing. "
+            "Configure DEEPGRAM_API_KEY in your environment."
+        )
 
-    # STEP 2: Define the Deepgram API endpoint.
+    # Define the Deepgram speech-to-text endpoint.
     url = "https://api.deepgram.com/v1/listen"
 
-    # STEP 3: Configure request headers.
+    # Configure authentication and audio format.
     headers = {
         "Authorization": f"Token {api_key}",
         "Content-Type": "audio/wav"
     }
 
-    # STEP 4: Configure multilingual transcription.
+    # Configure Deepgram Nova-3.
     params = {
+        # Use Deepgram's Nova-3 transcription model.
         "model": "nova-3",
 
         # Enable multilingual speech recognition.
@@ -67,10 +111,14 @@ def transcribe_audio_with_language(file_path):
         "smart_format": "true"
     }
 
-    # STEP 5: Open the WAV audio file.
+    # ==================================================
+    # STEP 4: SEND AUDIO TO DEEPGRAM
+    # ==================================================
+
+    # Open the WAV file in binary mode.
     with open(file_path, "rb") as audio_file:
 
-        # Send the audio to Deepgram.
+        # Send audio to Deepgram for transcription.
         response = requests.post(
             url,
             headers=headers,
@@ -79,48 +127,73 @@ def transcribe_audio_with_language(file_path):
             timeout=180
         )
 
-    # STEP 6: Check for API errors.
+    # Raise an exception for HTTP errors.
+    # Examples: 401 Unauthorized, 429 Too Many Requests.
     response.raise_for_status()
 
-    # STEP 7: Parse the JSON response.
+    # ==================================================
+    # STEP 5: PROCESS THE API RESPONSE
+    # ==================================================
+
+    # Convert the JSON response into a Python dictionary.
     result = response.json()
 
-    # Extract the first audio channel.
-    channel = result["results"]["channels"][0]
+    # Retrieve the first audio channel.
+    channels = result.get("results", {}).get("channels", [])
 
-    # Extract the transcript.
-    transcript = channel["alternatives"][0].get(
-        "transcript", ""
+    # Return an empty result if no channels exist.
+    if not channels:
+        return "", None
+
+    # Read the first available channel.
+    channel = channels[0]
+
+    # Retrieve transcription alternatives.
+    alternatives = channel.get("alternatives", [])
+
+    # Extract the recognized text safely.
+    transcript = (
+        alternatives[0].get("transcript", "")
+        if alternatives
+        else ""
     )
 
-    # STEP 8: Read language detection metadata.
+    # ==================================================
+    # STEP 6: DETECT THE SPOKEN LANGUAGE
+    # ==================================================
+
+    # Try the primary detected language field.
     language = channel.get("detected_language")
 
-    # Some responses contain multiple languages.
+    # Some responses include multiple detected languages.
     detected_languages = channel.get(
         "detected_languages", []
     )
 
-    # Use the first reported language if needed.
+    # Use the first detected language if necessary.
     if not language and detected_languages:
         language = detected_languages[0]
 
-    # STEP 9: Return both transcript and language.
+    # Return both the transcript and language code.
     return transcript, language
 
 
+# ==================================================
+# STEP 7: AUDIO UPLOAD COMPATIBILITY
+# ==================================================
+
 def transcribe_audio(file_path):
     """
-    Maintain compatibility with our existing
-    audio-upload transcription workflow.
+    Transcribe audio and return only the text.
 
-    This function returns only the transcript.
+    This function maintains compatibility with
+    the existing Streamlit audio-upload workflow.
     """
 
-    # Call our multilingual transcription function.
+    # Call the multilingual transcription function.
     transcript, language = (
         transcribe_audio_with_language(file_path)
     )
 
-    # Return only the text.
+    # Return only the recognized text.
     return transcript
