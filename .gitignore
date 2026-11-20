@@ -1,0 +1,29 @@
+
+# API keys and local secrets
+.env
+.env.*
+!.env.example
+.streamlit/secrets.toml
+
+# Python virtual environments
+venv/
+.venv/
+env/
+
+# Python cache files
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# Temporary audio and output files
+temp/
+transcripts/
+*.wav
+*.mp3
+*.m4a
+
+# IDE and operating system files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
