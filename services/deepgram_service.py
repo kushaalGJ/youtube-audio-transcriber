@@ -16,6 +16,18 @@ from dotenv import load_dotenv
 # Load environment variables from the .env file.
 load_dotenv()
 
+import streamlit as st
+
+def get_deepgram_api_key():
+    # Use the environment variable for local development.
+    api_key = get_deepgram_api_key()
+
+    if api_key:
+        return api_key
+
+    # Use Streamlit secrets when deployed.
+    return st.secrets.get("DEEPGRAM_API_KEY")
+
 
 def transcribe_audio_with_language(file_path):
     """
